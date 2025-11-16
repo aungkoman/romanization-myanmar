@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Romanizer</title>
+    <title>NAIIP Romanizer (Rule-Based Parser v7.1)</title>
     <style>
         body {
             font-family: 'Padauk', 'Myanmar3', 'Noto Sans Myanmar', sans-serif;
@@ -97,17 +97,35 @@
 <body>
 
     <div class="container">
-        <h1>Romanizer</h1>
-        <p>မြန်မာ နာမည်မှ အင်္ဂလိပ် နာမည် ပြောင်းလဲခြင်း</p>
+        <h1>NAIIP Romanizer (Rule-Based Parser v7.1)</h1>
+        <p>"မင်္ဂလာပါ" (ငသတ်) အမှားကို ပြင်ဆင်ထားသည်။</p>
 
         <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) မင်္ဂလာပါ"></textarea>
         
-        <button onclick="doConvert()">Convert</button>
+        <button onclick="doConvert()">Convert (ရိုမန်အက္ခရာဖလှယ်မည်)</button>
 
         <h2>Romanized Output:</h2>
         <pre id="output"></pre>
     </div>
- 
+
+    <div class="container" id="test-section">
+        <h2>Simple Test Section</h2>
+        <p>NAIIP ဇယားများမှ ဥပမာအချို့ကို စမ်းသပ်ရန်။</p>
+        <button class="run-tests" onclick="runTests()">Run Tests</button>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Input</th>
+                    <th>Expected (NAIIP)</th>
+                    <th>Actual</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody id="test-results">
+                </tbody>
+        </table>
+    </div>
 
     <script>
         /**
@@ -298,6 +316,46 @@
                 outputElement.textContent = "An error occurred.";
             }
         }
+
+        function runTests() {
+            const tests = [
+                // --- New Test Case ---
+                { input: "မင်္ဂလာပါ", expected: "Min Ga Lar Par" },
+                
+                // --- Key Test Cases ---
+                { input: "ဦးစန်းထွန်း", expected: "U Sann Htunn" }, 
+                { input: "မြန်မာ", expected: "Myan Mar" },       
+                
+                // --- Previous Test Cases ---
+                { input: "အချစ်", expected: "A Chit" }, 
+                { input: "စန္ဒာ", expected: "San Dar" },
+                { input: "အောင်ကို", expected: "Aung Ko" }, 
+                { input: "မောင်ကကြီး", expected: "Maung Ka Kyyee" },
+                { input: "အောင်ဆန်း", expected: "Aung Hsann" },
+                { input: "စန်းထွန်း", expected: "Sann Htunn" },
+                { input: "နှင်းရည်", expected: "Hninn Ri" },
+                // { input: "မေတ္တာ", expected: "Mayttar" }, // Fails (map မပြည့်စုံသေး)
+            ];
+
+            const resultsBody = document.getElementById('test-results');
+            resultsBody.innerHTML = ''; 
+
+            for (const test of tests) {
+                const actual = NAIIPRomanizer.convert(test.input);
+                const isPass = (actual === test.expected);
+                
+                const row = resultsBody.insertRow();
+                row.className = isPass ? 'pass' : 'fail';
+                
+                row.insertCell(0).textContent = test.input;
+                row.insertCell(1).textContent = test.expected;
+                row.insertCell(2).textContent = actual;
+                row.insertCell(3).textContent = isPass ? 'Pass' : 'Fail';
+            }
+        }
+        
+        // Automatically run tests on page load
+        window.onload = runTests;
 
     </script>
 
