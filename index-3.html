@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NAIIP Romanizer (Rule-Based Parser v4)</title>
+    <title>NAIIP Romanizer (Rule-Based Parser v3)</title>
     <style>
         body {
             font-family: 'Padauk', 'Myanmar3', 'Noto Sans Myanmar', sans-serif;
@@ -97,10 +97,10 @@
 <body>
 
     <div class="container">
-        <h1>NAIIP Romanizer (Rule-Based Parser v4)</h1>
-        <p>'စန္ဒာ' နှင့် 'အချစ်' parser အမှားများကို ပြင်ဆင်ထားသည်။</p>
+        <h1>NAIIP Romanizer (Rule-Based Parser v3)</h1>
+        <p>"အောင်ကို" -> "Aung Ko" အမှားကို ပြင်ဆင်ထားသည်။ ('အ' ကို consonant base အဖြစ် သတ်မှတ်) </p>
 
-        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) အောင်ကို (သို့) စန္ဒာ"></textarea>
+        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) အောင်ကို"></textarea>
         
         <button onclick="doConvert()">Convert (ရိုမန်အက္ခရာဖလှယ်မည်)</button>
 
@@ -143,7 +143,7 @@
                 STARTERS: [
                     'ကျ', 'ကြ', 'ချ', 'ခြ', 'ဂျ', 'ဂြ', 'ငှ', 'ညှ', 'နှ', 'မှ', 'ရှ', 'ယှ', 'သျှ', 'လှ', 'ဝှ', 'သှ',
                     'က', 'ခ', 'ဂ', 'ဃ', 'င', 'စ', 'ဆ', 'ဇ', 'ဈ', 'ည', 'ဉ', 'ဋ', 'တ', 'ဌ', 'ထ', 'ဍ', 'ဎ', 
-                    'ဓ', 'ဒ', 'ဏ', 'န', 'ပ', 'ဖ', 'ဗ', 'ဘ', 'မ', 'ယ', 'ရ', 'လ', 'ဠ', 'ဝ', 'သ', 'ဟ', 'အ',
+                    'ဓ', 'ဒ', 'ဏ', 'န', 'ပ', 'ဖ', 'ဗ', 'ဘ', 'မ', 'ယ', 'ရ', 'လ', 'ဠ', 'ဝ', 'သ', 'ဟ', 'အ', // 'အ' ကို starter အဖြစ် ထည့်သွင်း
                     'ဦး', 'ဥ', 'ဤ', 'ဧ', 'ဪ', 'ဩ', 'ဣ', 'ဦ'
                 ],
                 ASAT: '\u103A',
@@ -152,16 +152,15 @@
                 findValidStarterAt: function(text, index) {
                     for (const starter of this.STARTERS) {
                         if (text.startsWith(starter, index)) {
-                            
-                            // [FIX] Removed the lookbehind rule that failed 'စန္ဒာ'
-
-                            // --- Rule 2: Lookahead (is it followed by Asat/Virama?) ---
+                            // Rule 1: Lookbehind
+                            if (index > 0 && text[index - 1] === this.VIRAMA) {
+                                continue; 
+                            }
+                            // Rule 2: Lookahead
                             const charAfterIndex = index + starter.length;
                             if (charAfterIndex < text.length) {
                                 const charAfter = text[charAfterIndex];
                                 if (charAfter === this.VIRAMA || charAfter === this.ASAT) {
-                                    // This starter is part of the current syllable (e.g., 'န' in 'စန်း')
-                                    // It is NOT a new syllable starter.
                                     continue; 
                                 }
                             }
@@ -210,12 +209,15 @@
              * =======================================================
              */
             maps: {
+                // 'အ' ကို ဤနေရာမှ ဖယ်ထုတ်ပြီး consonantMap သို့ ရွှေ့ထားသည်
                 standaloneMap: {
                     'ဦး': 'U', 'ဥ': 'Ou', 'ဤ': 'E', 'ဧ': 'Ayy',
                     'ဪ': 'Aaw', 'ဩ': 'Aww', 'ဣ': 'Eii', 'ဦ': 'Oou'
                 },
+
                 consonantMap: {
-                    'အ': '', 'က': 'k', 'ခ': 'kh', 'ဂ': 'g', 'ဃ': 'g', 'င': 'ng',
+                    'အ': '', // 'အ' ကို "empty" consonant အဖြစ် သတ်မှတ်
+                    'က': 'k', 'ခ': 'kh', 'ဂ': 'g', 'ဃ': 'g', 'င': 'ng',
                     'စ': 's', 'ဆ': 'hs', 'ဇ': 'z', 'ဈ': 'z', 'ည': 'nny', 'ဉ': 'ny',
                     'ဋ': 'tt', 'တ': 't', 'ဌ': 'htt', 'ထ': 'ht', 'ဍ': 'dd', 'ဎ': 'dd',
                     'ဓ': 'd', 'ဒ': 'd', 'ဏ': 'nm', 'န': 'n', 'ပ': 'p', 'ဖ': 'hp',
@@ -225,26 +227,19 @@
                     'ငှ': 'hng', 'ညှ': 'hnny', 'နှ': 'hn', 'မှ': 'hm', 'ရှ': 'sh', 'ယှ': 'shy',
                     'သျှ': 'shh', 'လှ': 'hl', 'ဝှ': 'hw', 'သှ': 'th',
                 },
+
                 vowelMap: {
                     '': 'a', 'ာ': 'ar', 'ါ': 'ar', 'ား': 'arr', 'ိ': 'ei', 'ီ': 'e', 'ီး': 'ee',
                     'ု': 'u', 'ူ': 'uu', 'ေ': 'ay', 'ေ့': 'ae', 'ေး': 'aye', 'ယ်': 'el', 'ဲ့': 'elt',
                     'ဲ': 'ell', 'ော်': 'aw', 'ော့': 'awt', 'ော': 'aww', 'ို': 'o', 'ို့': 'oh', 'ိုး': 'oe',
                     'က်': 'et', 'ောက်': 'auk', 'ိုက်': 'aik', 'င်': 'in', 'ဉ်': 'iin', 'င့်': 'int',
                     'င်း': 'inn', 'ောင်': 'aung', 'ောင့်': 'ount', 'ောင်း': 'oung', 'ိုင်': 'aing',
-                    'ိုင်း': 'ai', 'အိုဏ်း': 'inme', 'မ်': 'am', 'ံ': 'am', 'ဏ်': 'anm',
+                    'ိုင်း': 'ai', 'အိုဏ်း': 'inme', 'န်': 'an', 'မ်': 'am', 'ံ': 'am', 'ဏ်': 'anm',
                     'န့်': 'ant', 'မ့်': 'amt', 'ံ့': 'amt', 'ဏ့်': 'anmt',
                     'န်း': 'ann', 'မ်း': 'amm', 'ဏ်း': 'anmm', 'ွန်း': 'unn', 'ွဏ်း': 'unmm',
                     'ိန်': 'ein', 'ိမ်': 'eim', 'ိဏ်': 'einm', 'ိန်း': 'einn', 'ိမ်း': 'eimm', 'ိဏ်း': 'einmm',
                     'ုန်': 'ohn', 'ုံ': 'ohm', 'ုဏ်': 'ohnm', 'ုန်း': 'own', 'ုံး': 'owm', 'ုဏ်း': 'ownm',
-                    'ည်': 'i', 'ဤ': 'e', '၏': 'eii',
-                    
-                    // --- [FIX] Added missing vowels ---
-                    'စ်': 'it',  // For အချစ် (from Table 3, Row 35)
-                    'န်': 'an',  // For စန်ဒါ (Asat version)
-                    'န္': 'an',  // For စန္ဒာ (Virama version)
-                    'တ်': 'at', 'ပ်': 'ap', // (From Table 3, Row 36)
-                    'ိတ်': 'eik', 'ိပ်': 'ake' // (From Table 3, Row 37)
-                    // (Map ဖြည့်စွက်ရန်များစွာ ကျန်ပါသေးသည်)
+                    'ည်': 'i', 'ဤ': 'e', '၏': 'eii'
                 }
             },
 
@@ -252,7 +247,7 @@
 
             /**
              * =======================================================
-             * Component 3: The Main Convert Function
+             * Component 3: The Main Convert Function (Simplified)
              * =======================================================
              */
             convert: function(myanmarText) {
@@ -262,15 +257,16 @@
                 for (const syllable of syllables) {
                     let romanSyllable = '';
 
+                    // 'အ' ကို consonantMap က ' ' (empty) အဖြစ် handle လုပ်သွားပါပြီ
                     if (this.maps.standaloneMap[syllable.C]) {
                         romanSyllable = this.maps.standaloneMap[syllable.C];
                     } 
-                    else if (this.maps.consonantMap[syllable.C] !== undefined) { 
+                    else if (this.maps.consonantMap[syllable.C] !== undefined) { // Check for undefined
                         const romanC = this.maps.consonantMap[syllable.C];
                         const romanV = this.maps.vowelMap[syllable.V];
 
                         if (romanV !== undefined) {
-                            romanSyllable = romanC + romanV; 
+                            romanSyllable = romanC + romanV; // e.g., '' + 'aung' = 'aung'
                         } else {
                             romanSyllable = romanC + `[${syllable.V}]?`; // Unknown vowel
                         }
@@ -308,18 +304,14 @@
 
         function runTests() {
             const tests = [
-                // --- New Test Cases ---
-                { input: "အချစ်", expected: "A Chit" }, 
-                { input: "စန္ဒာ", expected: "San Dar" }, // Virama input
-                { input: "စန်ဒါ", expected: "San Dar" }, // Asat input
-                
-                // --- Previous Test Cases ---
-                { input: "အောင်ကို", expected: "Aung Ko" }, 
+                { input: "အောင်ကို", expected: "Aung Ko" }, // --- New Test Case ---
                 { input: "ဦးစန်းထွန်း", expected: "U Sann Htunn" },
                 { input: "မောင်ကကြီး", expected: "Maung Ka Kyyee" },
                 { input: "အောင်ဆန်း", expected: "Aung Hsann" },
+                { input: "ထွန်းထွန်း", expected: "Htunn Htunn" },
                 { input: "စန်းထွန်း", expected: "Sann Htunn" },
                 { input: "နှင်းရည်", expected: "Hninn Ri" },
+                { input: "အချစ်", expected: "A Chit" }, // Test 'အ' as 'a'
                 // { input: "မေတ္တာ", expected: "Mayttar" }, // Fails (map မပြည့်စုံသေး)
             ];
 
