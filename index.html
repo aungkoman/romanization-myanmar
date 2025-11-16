@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAIIP Romanizer (Syllable Parser Method)</title>
+    <style>
+        body {
+            font-family: 'Padauk', 'Myanmar3', 'Noto Sans Myanmar', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        h1, h2 {
+            color: #005a9c;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            font-family: 'Padauk', 'Myanmar3', sans-serif;
+            box-sizing: border-box; /* Important for 100% width */
+        }
+        button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            padding: 14px 20px;
+            margin: 15px 0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            background-color: #282c34;
+            color: #c5dcff;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            white-space: pre-wrap; /* Allows text to wrap */
+            word-wrap: break-word; /* Breaks long words */
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>NAIIP Romanizer (Syllable Parser Method)</h1>
+        <p>ကျွန်တော်တို့ ဆွေးနွေးခဲ့သည့် JavaScript Syllable Parser နည်းလမ်းကို အသုံးပြုထားသည်။</p>
+
+        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) မောင်ကကြီး"></textarea>
+        
+        <button onclick="doConvert()">Convert (ရိုမန်အက္ခရာဖလှယ်မည်)</button>
+
+        <h2>Romanized Output:</h2>
+        <pre id="output"></pre>
+    </div>
+
+    <script>
+        /**
+         * NAIIP Romanizer Object
+         * -----------------------
+         * ဤ object တွင် SyllableParser၊ NAIIP Maps၊ နှင့် convert logic များ
+         * အားလုံး ပေါင်းစပ် ပါဝင်သည်။
+         */
+        const NAIIPRomanizer = {
+
+            /**
+             * =======================================================
+             * Component 1: Syllable Parser (The Engine)
+             * =======================================================
+             * NAIIP rules (Tables 1, 2, 3) ကို အခြေခံထားသော Syllable Starters များ။
+             * အရေးကြီးသည်- ပိုရှည်သော starter ('ကျ') ကို ပိုတိုသော ('က') ထက် အရင်ထားရမည်။
+             */
+            SyllableParser: {
+                STARTERS: [
+                    // --- 2-character starters (Table 1) ---
+                    'ကျ', 'ကြ', 'ချ', 'ခြ', 'ဂျ', 'ဂြ', 'ငှ', 'ညှ', 'နှ', 'မှ', 'ရှ', 'ယှ', 'သျှ', 'လှ', 'ဝှ', 'သှ',
+                    
+                    // --- 1-character starters (Table 1) ---
+                    'က', 'ခ', 'ဂ', 'ဃ', 'င', 'စ', 'ဆ', 'ဇ', 'ဈ', 'ည', 'ဉ', 'ဋ', 'တ', 'ဌ', 'ထ', 'ဍ', 'ဎ', 
+                    'ဓ', 'ဒ', 'ဏ', 'န', 'ပ', 'ဖ', 'ဗ', 'ဘ', 'မ', 'ယ', 'ရ', 'လ', 'ဠ', 'ဝ', 'သ', 'ဟ',
+                    
+                    // --- Standalone Vowel Starters (Table 3) ---
+                    'ဦး', 'ဥ', 'အ', 'ဤ', 'ဧ', 'ဪ', 'ဩ', 'ဣ', 'ဦ'
+                ],
+
+                findStarterAt: function(text, index) {
+                    for (const starter of this.STARTERS) {
+                        if (text.startsWith(starter, index)) {
+                            return starter;
+                        }
+                    }
+                    return null;
+                },
+
+                /**
+                 * မြန်မာစာသားကို Syllable အလိုက် ခွဲခြမ်းပေးသည်။
+                 * @returns {Array<Object>} e.g., [{C: 'စ', V: 'န်း'}, {C: 'ထ', V: 'ွန်း'}]
+                 */
+                parse: function(myanmarText) {
+                    const parsedSyllables = [];
+                    let i = 0;
+                    const text = myanmarText.replace(/\s+/g, ''); // Remove spaces
+
+                    while (i < text.length) {
+                        const currentStarter = this.findStarterAt(text, i);
+
+                        if (!currentStarter) {
+                            i++; // Not a starter, e.g., punctuation. Skip it.
+                            continue;
+                        }
+
+                        let nextStarterIndex = -1;
+                        let j = i + currentStarter.length;
+                        
+                        while (j < text.length) {
+                            if (this.findStarterAt(text, j)) {
+                                nextStarterIndex = j;
+                                break;
+                            }
+                            j++;
+                        }
+
+                        let syllableText;
+                        if (nextStarterIndex === -1) {
+                            syllableText = text.substring(i);
+                        } else {
+                            syllableText = text.substring(i, nextStarterIndex);
+                        }
+
+                        const C = currentStarter;
+                        const V = syllableText.substring(C.length); // The rest is the Vowel
+
+                        parsedSyllables.push({ C: C, V: V });
+
+                        if (nextStarterIndex === -1) {
+                            i = text.length; // Done
+                        } else {
+                            i = nextStarterIndex; // Move to the next starter
+                        }
+                    }
+                    return parsedSyllables;
+                }
+            }, // End of SyllableParser
+
+            /**
+             * =======================================================
+             * Component 2: NAIIP Maps (The Dictionary)
+             * =======================================================
+             * NAIIP ဇယားများ (Tables 1, 3) ကို အခြေခံထားသည်။
+             */
+            maps: {
+                // Standalone Vowels (Syllable အစ သီးခြားသရများ)
+                standaloneMap: {
+                    'ဦး': 'U',
+                    'ဥ': 'Ou',
+                    'အ': 'A',
+                    'ဤ': 'E',
+                    'ဧ': 'Ayy',
+                    'ဪ': 'Aaw',
+                    'ဩ': 'Aww',
+                    'ဣ': 'Eii',
+                    'ဦ': 'Oou'
+                },
+
+                // Consonant Starters (ဗျည်းများ)
+                consonantMap: {
+                    'က': 'k', 'ခ': 'kh', 'ဂ': 'g', 'ဃ': 'g', 'င': 'ng',
+                    'စ': 's', 'ဆ': 'hs', 'ဇ': 'z', 'ဈ': 'z', 'ည': 'nny', 'ဉ': 'ny',
+                    'ဋ': 'tt', 'တ': 't', 'ဌ': 'htt', 'ထ': 'ht', 'ဍ': 'dd', 'ဎ': 'dd',
+                    'ဓ': 'd', 'ဒ': 'd', 'ဏ': 'nm', 'န': 'n', 'ပ': 'p', 'ဖ': 'hp',
+                    'ဗ': 'bb', 'ဘ': 'b', 'မ': 'm', 'ယ': 'y', 'ရ': 'r', 'လ': 'l', 'ဠ': 'll',
+                    'ဝ': 'w', 'သ': 'th', 'ဟ': 'h',
+                    // --- 2-char starters ---
+                    'ကျ': 'ky', 'ကြ': 'kyy', 'ချ': 'ch', 'ခြ': 'chh', 'ဂျ': 'gy', 'ဂြ': 'gyy',
+                    'ငှ': 'hng', 'ညှ': 'hnny', 'နှ': 'hn', 'မှ': 'hm', 'ရှ': 'sh', 'ယှ': 'shy',
+                    'သျှ': 'shh', 'လှ': 'hl', 'ဝှ': 'hw', 'သှ': 'th',
+                },
+
+                // Vowel endings (သရများ)
+                // Key: V (parser မှ ခွဲထုတ်လိုက်သော 'V' part)
+                // Value: Roman equivalent
+                vowelMap: {
+                    '': 'a',       // Default 'a' vowel (e.g., 'က' -> ka)
+                    'ာ': 'ar', 'ါ': 'ar',
+                    'ား': 'arr',
+                    'ိ': 'ei',
+                    'ီ': 'e',
+                    'ီး': 'ee',
+                    'ု': 'u',
+                    'ူ': 'uu',
+                    'ေ': 'ay',
+                    'ေ့': 'ae',
+                    'ေး': 'aye',
+                    'ယ်': 'el',
+                    'ဲ့': 'elt',
+                    'ဲ': 'ell',
+                    'ော်': 'aw',
+                    'ော့': 'awt',
+                    'ော': 'aww',
+                    'ို': 'o',
+                    'ို့': 'oh',
+                    'ိုး': 'oe',
+                    'က်': 'et',
+                    'ောက်': 'auk',
+                    'ိုက်': 'aik',
+                    'င်': 'in', 'ဉ်': 'iin',
+                    'င့်': 'int',
+                    'င်း': 'inn',
+                    'ောင်': 'aung',
+                    'ောင့်': 'ount',
+                    'ောင်း': 'oung',
+                    'ိုင်': 'aing',
+                    'ိုင်း': 'ai',
+                    'န်': 'an', 'မ်': 'am', 'ံ': 'am', 'ဏ်': 'anmm',
+                    'န်း': 'ann', 'မ်း': 'amm', 'ဏ်း': 'anmm',
+                    'ိန်': 'ein', 'ိမ်': 'eim',
+                    'ိန်း': 'einn', 'ိမ်း': 'eimm',
+                    'ုန်': 'ohn', 'ုံ': 'ohm', 'ုဏ်': 'ohnm',
+                    'ုန်း': 'own', 'ုံး': 'owm', 'ုဏ်း': 'ownm',
+                    'ွန်း': 'unn',
+                    // (NAIIP ဇယားများအတိုင်း အကုန် ဖြည့်စွက်နိုင်ပါသည်)
+                }
+            }, // End of maps
+
+            /**
+             * Helper function: Capitalize (e.g., "sann" -> "Sann")
+             */
+            capitalize: (s) => {
+                if (typeof s !== 'string' || s.length === 0) return '';
+                return s.charAt(0).toUpperCase() + s.slice(1);
+            },
+
+            /**
+             * =======================================================
+             * Component 3: The Main Convert Function
+             * =======================================================
+             */
+            convert: function(myanmarText) {
+                // 1. Parser ကို အသုံးပြု၍ C/V ခွဲထုတ်သည်
+                const syllables = this.SyllableParser.parse(myanmarText);
+                
+                const romanParts = [];
+
+                // 2. Syllable တစ်ခုချင်းစီကို Loop ပတ်၍ Map ဖြင့် တိုက်စစ်သည်
+                for (const syllable of syllables) {
+                    let romanSyllable = '';
+
+                    // 3. Standalone (ဦး, ဥ, အ) ဖြစ်မဖြစ် ဦးစွာစစ်ဆေးသည်
+                    if (this.maps.standaloneMap[syllable.C]) {
+                        romanSyllable = this.maps.standaloneMap[syllable.C];
+                        // (Standalone များတွင် V မရှိဟု ယူဆသည်)
+                    } 
+                    // 4. ဗျည်း (Consonant) ဖြစ်လျှင် C + V ပေါင်းစပ်သည်
+                    else if (this.maps.consonantMap[syllable.C]) {
+                        const romanC = this.maps.consonantMap[syllable.C];
+                        
+                        // Vowel ကို ရှာသည် (မတွေ့လျှင် '?' ထားမည်)
+                        const romanV = this.maps.vowelMap[syllable.V];
+
+                        if (romanV !== undefined) {
+                            romanSyllable = romanC + romanV;
+                        } else {
+                            // Map ထဲတွင် မရှိသော Vowel (e.G., 'စျ')
+                            romanSyllable = romanC + `[${syllable.V}]?`;
+                        }
+                    } 
+                    else {
+                        // Parser ၏ STARTERS list တွင် ပါသော်လည်း Map တွင် မရှိခြင်း
+                        romanSyllable = `[${syllable.C}]?`;
+                    }
+
+                    // 5. NAIIP ဥပမာများအတိုင်း Capitalize လုပ်သည်
+                    romanParts.push(this.capitalize(romanSyllable));
+                }
+
+                // 6. space ဖြင့် ပေါင်းစပ်၍ ပြန်ပေးသည်
+                return romanParts.join(' ');
+            }
+        }; // End of NAIIPRomanizer
+
+        /**
+         * =======================================================
+         * HTML UI Event Handler
+         * =======================================================
+         */
+        function doConvert() {
+            const input = document.getElementById('myanmarInput').value;
+            const outputElement = document.getElementById('output');
+            
+            if (!input.trim()) {
+                outputElement.textContent = "Please enter Myanmar text to convert.";
+                return;
+            }
+            
+            try {
+                const result = NAIIPRomanizer.convert(input);
+                outputElement.textContent = result;
+            } catch (error) {
+                console.error("Conversion Error:", error);
+                outputElement.textContent = "An error occurred during conversion. See console for details.";
+            }
+        }
+    </script>
+
+</body>
+</html>
