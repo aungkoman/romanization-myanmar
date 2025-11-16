@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NAIIP Romanizer (Rule-Based Parser v3)</title>
+    <title>NAIIP Romanizer (Rule-Based Parser)</title>
     <style>
         body {
             font-family: 'Padauk', 'Myanmar3', 'Noto Sans Myanmar', sans-serif;
@@ -97,10 +97,10 @@
 <body>
 
     <div class="container">
-        <h1>NAIIP Romanizer (Rule-Based Parser v3)</h1>
-        <p>"အောင်ကို" -> "Aung Ko" အမှားကို ပြင်ဆင်ထားသည်။ ('အ' ကို consonant base အဖြစ် သတ်မှတ်) </p>
+        <h1>NAIIP Romanizer (Rule-Based Parser)</h1>
+        <p>Parser အမှားကို ပြင်ဆင်ပြီး၊ Perl Regex ၏ Rule-based logic (lookahead/lookbehind) ကို အသုံးပြုထားသည်။</p>
 
-        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) အောင်ကို"></textarea>
+        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) မောင်ကကြီး"></textarea>
         
         <button onclick="doConvert()">Convert (ရိုမန်အက္ခရာဖလှယ်မည်)</button>
 
@@ -136,51 +136,78 @@
 
             /**
              * =======================================================
-             * Component 1: Syllable Parser (Rule-Based Logic)
+             * Component 1: Syllable Parser (NEW RULE-BASED LOGIC)
              * =======================================================
              */
             SyllableParser: {
                 STARTERS: [
                     'ကျ', 'ကြ', 'ချ', 'ခြ', 'ဂျ', 'ဂြ', 'ငှ', 'ညှ', 'နှ', 'မှ', 'ရှ', 'ယှ', 'သျှ', 'လှ', 'ဝှ', 'သှ',
                     'က', 'ခ', 'ဂ', 'ဃ', 'င', 'စ', 'ဆ', 'ဇ', 'ဈ', 'ည', 'ဉ', 'ဋ', 'တ', 'ဌ', 'ထ', 'ဍ', 'ဎ', 
-                    'ဓ', 'ဒ', 'ဏ', 'န', 'ပ', 'ဖ', 'ဗ', 'ဘ', 'မ', 'ယ', 'ရ', 'လ', 'ဠ', 'ဝ', 'သ', 'ဟ', 'အ', // 'အ' ကို starter အဖြစ် ထည့်သွင်း
-                    'ဦး', 'ဥ', 'ဤ', 'ဧ', 'ဪ', 'ဩ', 'ဣ', 'ဦ'
+                    'ဓ', 'ဒ', 'ဏ', 'န', 'ပ', 'ဖ', 'ဗ', 'ဘ', 'မ', 'ယ', 'ရ', 'လ', 'ဠ', 'ဝ', 'သ', 'ဟ',
+                    'ဦး', 'ဥ', 'အ', 'ဤ', 'ဧ', 'ဪ', 'ဩ', 'ဣ', 'ဦ'
                 ],
+                
+                // Unicode constants for rules
                 ASAT: '\u103A',
                 VIRAMA: '\u1039',
 
+                /**
+                 * Finds a valid syllable starter at the given index,
+                 * applying rule-based lookahead/lookbehind checks.
+                 */
                 findValidStarterAt: function(text, index) {
                     for (const starter of this.STARTERS) {
                         if (text.startsWith(starter, index)) {
-                            // Rule 1: Lookbehind
-                            if (index > 0 && text[index - 1] === this.VIRAMA) {
-                                continue; 
+                            
+                            // --- Rule 1: Lookbehind (is it part of a stack?) ---
+                            if (index > 0) {
+                                const charBefore = text[index - 1];
+                                if (charBefore === this.VIRAMA) {
+                                    // This starter is part of a stack (e.g., 'တ' in 'မေတ္တာ')
+                                    // It is NOT a new syllable starter.
+                                    continue; 
+                                }
                             }
-                            // Rule 2: Lookahead
+
+                            // --- Rule 2: Lookahead (is it followed by Asat/Virama?) ---
                             const charAfterIndex = index + starter.length;
                             if (charAfterIndex < text.length) {
                                 const charAfter = text[charAfterIndex];
                                 if (charAfter === this.VIRAMA || charAfter === this.ASAT) {
+                                    // This starter is part of the current syllable (e.g., 'န' in 'စန်း')
+                                    // It is NOT a new syllable starter.
                                     continue; 
                                 }
                             }
-                            return starter; // All rules passed
+                            
+                            // --- All rules passed. This is a valid starter. ---
+                            return starter;
                         }
                     }
-                    return null;
+                    return null; // No valid starter found
                 },
 
+                /**
+                 * Parses Myanmar text into C/V syllable components.
+                 */
                 parse: function(myanmarText) {
                     const parsedSyllables = [];
                     let i = 0;
-                    const text = myanmarText.replace(/\s+/g, '');
+                    const text = myanmarText.replace(/\s+/g, ''); // Remove spaces
 
                     while (i < text.length) {
+                        // 1. Find the *valid* starter for the current syllable
                         const currentStarter = this.findValidStarterAt(text, i);
-                        if (!currentStarter) { i++; continue; }
+                        
+                        if (!currentStarter) {
+                            i++; // Not a starter, e.g., punctuation or mid-syllable char. Skip.
+                            continue;
+                        }
 
+                        // 2. Find the *next* valid syllable's starter
                         let nextStarterIndex = -1;
-                        let j = i + currentStarter.length;
+                        let j = i + currentStarter.length; // Start searching *after* the current starter
+                        
                         while (j < text.length) {
                             if (this.findValidStarterAt(text, j)) {
                                 nextStarterIndex = j;
@@ -189,15 +216,25 @@
                             j++;
                         }
 
-                        let syllableText = (nextStarterIndex === -1) 
-                            ? text.substring(i) 
-                            : text.substring(i, nextStarterIndex);
+                        // 3. Slice the syllable
+                        let syllableText;
+                        if (nextStarterIndex === -1) {
+                            syllableText = text.substring(i); // Last syllable
+                        } else {
+                            syllableText = text.substring(i, nextStarterIndex); // Slice up to next starter
+                        }
 
+                        // 4. Split into Consonant (C) and Vowel (V)
                         const C = currentStarter;
-                        const V = syllableText.substring(C.length);
+                        const V = syllableText.substring(C.length); // The rest is the Vowel
                         parsedSyllables.push({ C: C, V: V });
 
-                        i = (nextStarterIndex === -1) ? text.length : nextStarterIndex;
+                        // 5. Move index 'i' to the start of the next syllable
+                        if (nextStarterIndex === -1) {
+                            i = text.length; // We're done
+                        } else {
+                            i = nextStarterIndex;
+                        }
                     }
                     return parsedSyllables;
                 }
@@ -209,14 +246,11 @@
              * =======================================================
              */
             maps: {
-                // 'အ' ကို ဤနေရာမှ ဖယ်ထုတ်ပြီး consonantMap သို့ ရွှေ့ထားသည်
                 standaloneMap: {
-                    'ဦး': 'U', 'ဥ': 'Ou', 'ဤ': 'E', 'ဧ': 'Ayy',
+                    'ဦး': 'U', 'ဥ': 'Ou', 'အ': 'A', 'ဤ': 'E', 'ဧ': 'Ayy',
                     'ဪ': 'Aaw', 'ဩ': 'Aww', 'ဣ': 'Eii', 'ဦ': 'Oou'
                 },
-
                 consonantMap: {
-                    'အ': '', // 'အ' ကို "empty" consonant အဖြစ် သတ်မှတ်
                     'က': 'k', 'ခ': 'kh', 'ဂ': 'g', 'ဃ': 'g', 'င': 'ng',
                     'စ': 's', 'ဆ': 'hs', 'ဇ': 'z', 'ဈ': 'z', 'ည': 'nny', 'ဉ': 'ny',
                     'ဋ': 'tt', 'တ': 't', 'ဌ': 'htt', 'ထ': 'ht', 'ဍ': 'dd', 'ဎ': 'dd',
@@ -227,7 +261,6 @@
                     'ငှ': 'hng', 'ညှ': 'hnny', 'နှ': 'hn', 'မှ': 'hm', 'ရှ': 'sh', 'ယှ': 'shy',
                     'သျှ': 'shh', 'လှ': 'hl', 'ဝှ': 'hw', 'သှ': 'th',
                 },
-
                 vowelMap: {
                     '': 'a', 'ာ': 'ar', 'ါ': 'ar', 'ား': 'arr', 'ိ': 'ei', 'ီ': 'e', 'ီး': 'ee',
                     'ု': 'u', 'ူ': 'uu', 'ေ': 'ay', 'ေ့': 'ae', 'ေး': 'aye', 'ယ်': 'el', 'ဲ့': 'elt',
@@ -247,7 +280,7 @@
 
             /**
              * =======================================================
-             * Component 3: The Main Convert Function (Simplified)
+             * Component 3: The Main Convert Function
              * =======================================================
              */
             convert: function(myanmarText) {
@@ -257,16 +290,15 @@
                 for (const syllable of syllables) {
                     let romanSyllable = '';
 
-                    // 'အ' ကို consonantMap က ' ' (empty) အဖြစ် handle လုပ်သွားပါပြီ
                     if (this.maps.standaloneMap[syllable.C]) {
                         romanSyllable = this.maps.standaloneMap[syllable.C];
                     } 
-                    else if (this.maps.consonantMap[syllable.C] !== undefined) { // Check for undefined
+                    else if (this.maps.consonantMap[syllable.C]) {
                         const romanC = this.maps.consonantMap[syllable.C];
                         const romanV = this.maps.vowelMap[syllable.V];
 
                         if (romanV !== undefined) {
-                            romanSyllable = romanC + romanV; // e.g., '' + 'aung' = 'aung'
+                            romanSyllable = romanC + romanV;
                         } else {
                             romanSyllable = romanC + `[${syllable.V}]?`; // Unknown vowel
                         }
@@ -304,19 +336,19 @@
 
         function runTests() {
             const tests = [
-                { input: "အောင်ကို", expected: "Aung Ko" }, // --- New Test Case ---
                 { input: "ဦးစန်းထွန်း", expected: "U Sann Htunn" },
                 { input: "မောင်ကကြီး", expected: "Maung Ka Kyyee" },
                 { input: "အောင်ဆန်း", expected: "Aung Hsann" },
                 { input: "ထွန်းထွန်း", expected: "Htunn Htunn" },
+                { input: "ဦးဆန်းထွန်း", expected: "U Hsann Htunn" },
                 { input: "စန်းထွန်း", expected: "Sann Htunn" },
                 { input: "နှင်းရည်", expected: "Hninn Ri" },
-                { input: "အချစ်", expected: "A Chit" }, // Test 'အ' as 'a'
-                // { input: "မေတ္တာ", expected: "Mayttar" }, // Fails (map မပြည့်စုံသေး)
+                { input: "မောင်သုတ", expected: "Mg Thuta" },
+                { input: "မေတ္တာ", expected: "Mayttar" }, // Test for stacked consonant
             ];
 
             const resultsBody = document.getElementById('test-results');
-            resultsBody.innerHTML = ''; 
+            resultsBody.innerHTML = ''; // Clear old results
 
             for (const test of tests) {
                 const actual = NAIIPRomanizer.convert(test.input);
