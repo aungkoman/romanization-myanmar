@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NAIIP Romanizer (Rule-Based Parser v7.1)</title>
+    <title>NAIIP Romanizer (Rule-Based Parser v4)</title>
     <style>
         body {
             font-family: 'Padauk', 'Myanmar3', 'Noto Sans Myanmar', sans-serif;
@@ -97,10 +97,10 @@
 <body>
 
     <div class="container">
-        <h1>NAIIP Romanizer (Rule-Based Parser v7.1)</h1>
-        <p>"မင်္ဂလာပါ" (ငသတ်) အမှားကို ပြင်ဆင်ထားသည်။</p>
+        <h1>NAIIP Romanizer (Rule-Based Parser v4)</h1>
+        <p>'စန္ဒာ' နှင့် 'အချစ်' parser အမှားများကို ပြင်ဆင်ထားသည်။</p>
 
-        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) မင်္ဂလာပါ"></textarea>
+        <textarea id="myanmarInput" rows="5" placeholder="ဥပမာ: ဦးစန်းထွန်း (သို့) အောင်ကို (သို့) စန္ဒာ"></textarea>
         
         <button onclick="doConvert()">Convert (ရိုမန်အက္ခရာဖလှယ်မည်)</button>
 
@@ -108,7 +108,7 @@
         <pre id="output"></pre>
     </div>
 
-    <div class="container" id="test-section">
+    <!-- <div class="container" id="test-section">
         <h2>Simple Test Section</h2>
         <p>NAIIP ဇယားများမှ ဥပမာအချို့ကို စမ်းသပ်ရန်။</p>
         <button class="run-tests" onclick="runTests()">Run Tests</button>
@@ -125,7 +125,7 @@
             <tbody id="test-results">
                 </tbody>
         </table>
-    </div>
+    </div> -->
 
     <script>
         /**
@@ -152,11 +152,16 @@
                 findValidStarterAt: function(text, index) {
                     for (const starter of this.STARTERS) {
                         if (text.startsWith(starter, index)) {
-                            // Lookahead Rule
+                            
+                            // [FIX] Removed the lookbehind rule that failed 'စန္ဒာ'
+
+                            // --- Rule 2: Lookahead (is it followed by Asat/Virama?) ---
                             const charAfterIndex = index + starter.length;
                             if (charAfterIndex < text.length) {
                                 const charAfter = text[charAfterIndex];
                                 if (charAfter === this.VIRAMA || charAfter === this.ASAT) {
+                                    // This starter is part of the current syllable (e.g., 'န' in 'စန်း')
+                                    // It is NOT a new syllable starter.
                                     continue; 
                                 }
                             }
@@ -228,20 +233,18 @@
                     'င်း': 'inn', 'ောင်': 'aung', 'ောင့်': 'ount', 'ောင်း': 'oung', 'ိုင်': 'aing',
                     'ိုင်း': 'ai', 'အိုဏ်း': 'inme', 'မ်': 'am', 'ံ': 'am', 'ဏ်': 'anm',
                     'န့်': 'ant', 'မ့်': 'amt', 'ံ့': 'amt', 'ဏ့်': 'anmt',
-                    'န်း': 'ann', 'မ်း': 'amm', 'ဏ်း': 'anmm', 'ွန်း': 'unn', 'ွဏ်း': 'unmm', 
+                    'န်း': 'ann', 'မ်း': 'amm', 'ဏ်း': 'anmm', 'ွန်း': 'unn', 'ွဏ်း': 'unmm',
                     'ိန်': 'ein', 'ိမ်': 'eim', 'ိဏ်': 'einm', 'ိန်း': 'einn', 'ိမ်း': 'eimm', 'ိဏ်း': 'einmm',
                     'ုန်': 'ohn', 'ုံ': 'ohm', 'ုဏ်': 'ohnm', 'ုန်း': 'own', 'ုံး': 'owm', 'ုဏ်း': 'ownm',
-                    'ည်': 'i', 'ဤ': 'e', '၏': 'eii', 'စ်': 'it', 'န်': 'an', 'န္': 'an',
-                    'တ်': 'at', 'ပ်': 'ap', 'ိတ်': 'eik', 'ိပ်': 'ake',
+                    'ည်': 'i', 'ဤ': 'e', '၏': 'eii',
                     
-                    // --- [FIX v7.1] Added Coda 'Nga' for 'Mingalar' ---
-                    'င္': 'in', // (U+1004 + U+1039 - Virama version)
-                    'င်္': 'in'  // (U+1004 + U+103A - Asat version, just in case)
-                },
-                medialMap: {
-                    '\u103B': 'y', // ျ (ya-pin)
-                    '\u103C': 'y', // ြ (ya-yit) - "Myan"
-                    '\u103D': 'w', // ွ (wa-hswe)
+                    // --- [FIX] Added missing vowels ---
+                    'စ်': 'it',  // For အချစ် (from Table 3, Row 35)
+                    'န်': 'an',  // For စန်ဒါ (Asat version)
+                    'န္': 'an',  // For စန္ဒာ (Virama version)
+                    'တ်': 'at', 'ပ်': 'ap', // (From Table 3, Row 36)
+                    'ိတ်': 'eik', 'ိပ်': 'ake' // (From Table 3, Row 37)
+                    // (Map ဖြည့်စွက်ရန်များစွာ ကျန်ပါသေးသည်)
                 }
             },
 
@@ -249,7 +252,7 @@
 
             /**
              * =======================================================
-             * Component 3: The Main Convert Function (v6 Logic)
+             * Component 3: The Main Convert Function
              * =======================================================
              */
             convert: function(myanmarText) {
@@ -263,27 +266,13 @@
                         romanSyllable = this.maps.standaloneMap[syllable.C];
                     } 
                     else if (this.maps.consonantMap[syllable.C] !== undefined) { 
-                        const romanC = this.maps.consonantMap[syllable.C]; 
-                        let vPart = syllable.V; 
-                        
-                        let romanV = this.maps.vowelMap[vPart]; // 1. Check for full vowel
-                        let romanM = '';
+                        const romanC = this.maps.consonantMap[syllable.C];
+                        const romanV = this.maps.vowelMap[syllable.V];
 
                         if (romanV !== undefined) {
-                            // Case 1: Found full vowel (e.g., 'ွန်း' -> 'unn' OR 'င္' -> 'in')
+                            romanSyllable = romanC + romanV; 
                         } else {
-                            // Case 2: Not a full vowel. Try splitting Medial + Vowel (e.g., 'ြန်')
-                            if (vPart.length > 0 && this.maps.medialMap[vPart[0]]) {
-                                romanM = this.maps.medialMap[vPart[0]]; // e.g., 'y'
-                                vPart = vPart.substring(1); // e.g., 'န်'
-                                romanV = this.maps.vowelMap[vPart]; // e.g., 'an'
-                            }
-                        }
-
-                        if (romanV !== undefined) {
-                            romanSyllable = romanC + romanM + romanV; // 'm' + '' + 'in' = 'min'
-                        } else {
-                            romanSyllable = romanC + romanM + `[${vPart}]?`; // Unknown vowel
+                            romanSyllable = romanC + `[${syllable.V}]?`; // Unknown vowel
                         }
                     } 
                     else {
@@ -319,17 +308,14 @@
 
         function runTests() {
             const tests = [
-                // --- New Test Case ---
-                { input: "မင်္ဂလာပါ", expected: "Min Ga Lar Par" },
-                
-                // --- Key Test Cases ---
-                { input: "ဦးစန်းထွန်း", expected: "U Sann Htunn" }, 
-                { input: "မြန်မာ", expected: "Myan Mar" },       
+                // --- New Test Cases ---
+                { input: "အချစ်", expected: "A Chit" }, 
+                { input: "စန္ဒာ", expected: "San Dar" }, // Virama input
+                { input: "စန်ဒါ", expected: "San Dar" }, // Asat input
                 
                 // --- Previous Test Cases ---
-                { input: "အချစ်", expected: "A Chit" }, 
-                { input: "စန္ဒာ", expected: "San Dar" },
                 { input: "အောင်ကို", expected: "Aung Ko" }, 
+                { input: "ဦးစန်းထွန်း", expected: "U Sann Htunn" },
                 { input: "မောင်ကကြီး", expected: "Maung Ka Kyyee" },
                 { input: "အောင်ဆန်း", expected: "Aung Hsann" },
                 { input: "စန်းထွန်း", expected: "Sann Htunn" },
